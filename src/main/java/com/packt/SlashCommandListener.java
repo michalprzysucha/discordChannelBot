@@ -10,9 +10,12 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Scanner;
 
 public class SlashCommandListener extends ListenerAdapter {
     private static final String targetCategoryName = "mecze";
@@ -57,19 +60,31 @@ public class SlashCommandListener extends ListenerAdapter {
 
     private ChannelAction<TextChannel> editChannel(ChannelAction<TextChannel> action, Guild guild, Member playerA, Member playerB) {
         Member guildOwner = guild.getOwner();
-        Role adminRole = guild.getRolesByName("Admin", true).getFirst();
-        Role streamerRole = guild.getRolesByName("Streaming", true).getFirst();
-        Role modRole = guild.getRolesByName("Mod", true).getFirst();
-        List<Role> roleList = List.of(adminRole, streamerRole, modRole);
-
         action = hideChannel(action, guild);
-        for(Role role : roleList) {
-            action = addRoleToChannel(action, role);
+
+        List<Role> roleList = readRoles(guild);
+        if(roleList != null && !roleList.isEmpty()) {
+            for(Role role : roleList) {
+                action = addRoleToChannel(action, role);
+            }
         }
         action = addMemberToChannel(action, guildOwner);
         action = addMemberToChannel(action, playerA);
         action = addMemberToChannel(action, playerB);
         return action;
+    }
+
+    private List<Role> readRoles(Guild guild){
+        try(Scanner scanner = new Scanner(Path.of("src/main/resources/roles.txt"))){
+            scanner.useDelimiter(System.lineSeparator());
+            return scanner.tokens()
+                    .map(roleName -> guild.getRolesByName(roleName.trim(), true).getFirst())
+                    .toList();
+        }
+        catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+        return null;
     }
 
     private ChannelAction<TextChannel> hideChannel(ChannelAction<TextChannel> action, Guild guild){
