@@ -1,0 +1,8 @@
+Welcome {playerA} and {playerB} this is an official channel for your game.
+
+You will be given date/time for the game, this actually deadline, but you can agree with your opponents any date or time earlier.
+
+The nations will be spun before the game by streamer (admin). You will have up to 5 minutes to prepare strategy.
+The name of the room for the game will be posted to this channel, as well as password.
+
+Please save and upload replay to this channel.

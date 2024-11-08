@@ -18,15 +18,7 @@
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
-            <version>5.2.0</version> <!-- replace $version with the latest version -->
-            <!-- Optionally disable audio natives to reduce jar size by excluding `opus-java`
-            <exclusions>
-                <exclusion>
-                    <groupId>club.minnced</groupId>
-                    <artifactId>opus-java</artifactId>
-                </exclusion>
-            </exclusions>
-            -->
+            <version>5.2.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
