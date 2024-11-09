@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -28,11 +30,23 @@ public class Main {
         CommandListUpdateAction commands = api.updateCommands();
 
         commands.addCommands(
-                Commands.slash("say", "Makes the bot say what you tell it to")
-                        .addOption(STRING, "content", "What the bot should say", true),
                 Commands.slash("create-channel", "Creates a new match channel")
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS))
                         .addOption(OptionType.USER, "first-player", "First player in a match", true)
-                        .addOption(OptionType.USER, "second-player", "Second player in a match", true)
-        ).queue();
+                        .addOption(OptionType.USER, "second-player", "Second player in a match", true),
+                Commands.slash("show-roles", "Show roles to add to channels created by this bot")
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                Commands.slash("add-role", "Add role which will be added by bot to channels created by it")
+                        .addOption(OptionType.ROLE, "role", "Role to add", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                Commands.slash("remove-role", "Removes role which would be added by bot to channels created by it")
+                        .addOption(OptionType.ROLE, "role", "Role to remove", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                Commands.slash("set-welcome-message", "Sets message which will be sent by bot after channel creation")
+                        .addOption(STRING, "message", "Welcome message to set", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                Commands.slash("show-welcome-message", "Shows message which will be sent by bot after channel creation")
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS))
+                ).queue();
     }
 }
