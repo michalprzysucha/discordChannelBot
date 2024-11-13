@@ -6,3 +6,14 @@ The nations will be spun before the game by streamer (admin). You will have up t
 The name of the room for the game will be posted to this channel, as well as password.
 
 Please save and upload replay to this channel.
+
+Rules:
+- 1000 resources, 0 peace time, no market
+- 1000 resources, 0 peace time
+- 5000 resources, 0 peace time
+
+1. {playerA} picks option for 1st game.
+2. {playerB} picks option for 2nd game.
+3. The 3d game is remaining option (if needed).
+
+In case of any problems feel free to ask for help on {support}.

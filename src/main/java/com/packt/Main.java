@@ -11,14 +11,17 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction;
 
-import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 
 public class Main {
     public static void main(String[] arguments) throws Exception {
         String token;
-        try(FileReader reader = new FileReader("config.json")){
+        InputStream input = Main.class.getClassLoader().getResourceAsStream("config.json");
+        try(BufferedReader reader = new BufferedReader(new InputStreamReader(input))){
             JsonObject jsonObject = JsonParser.parseReader(reader).getAsJsonObject();
             token = jsonObject.get("token").getAsString();
         }
