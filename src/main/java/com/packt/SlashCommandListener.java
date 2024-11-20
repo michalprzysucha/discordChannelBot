@@ -7,22 +7,27 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
+import net.dv8tion.jda.api.utils.messages.MessagePollData;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class SlashCommandListener extends ListenerAdapter {
-    private static final String TARGET_CATEGORY_NAME = "mecze";
+    private static final String TARGET_CATEGORY_ID = "1303621015611379794";
+    private static final String SUPPORT_CHANNEL_ID = "1302004013117739008";
     private static final String WELCOME_MESSAGE_PATH = "src/main/resources/welcomeMessage.txt";
+    private static final String BETTING_CHANNEL_ID = "1308746477534707772";
     private static final String ROLES_PATH = "src/main/resources/roles.txt";
     private final ReentrantReadWriteLock welcomeLock = new ReentrantReadWriteLock(true);
     private final ReentrantReadWriteLock roleLock = new ReentrantReadWriteLock(true);
@@ -30,6 +35,17 @@ public class SlashCommandListener extends ListenerAdapter {
     private final Lock welcomeWriteLock = welcomeLock.writeLock();
     private final Lock roleReadLock = roleLock.readLock();
     private final Lock roleWriteLock = roleLock.writeLock();
+
+    private record Game(String playerA, double scoreA, String playerB, double scoreB) {
+    }
+
+    @Override
+    public void onMessageContextInteraction(@NotNull MessageContextInteractionEvent event) {
+        switch (event.getName()){
+            case "Create betting polls" -> createPollsHandler(event);
+            case "Close poll" -> closePollHandler(event);
+        }
+    }
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
@@ -44,7 +60,58 @@ public class SlashCommandListener extends ListenerAdapter {
         }
     }
 
-    private void createChannelHandler(SlashCommandInteractionEvent event) {
+    private synchronized void closePollHandler(@NotNull MessageContextInteractionEvent event){
+        event.getTarget().endPoll().queue();
+        event.reply("Successfully closed poll!").setEphemeral(true).queue();
+    }
+
+    private synchronized void createPollsHandler(@NotNull MessageContextInteractionEvent event) {
+        String bettingMsg = event.getTarget().getContentRaw();
+        String[] lines = bettingMsg.split("\\R");
+        List<Game> games;
+        try {
+            games = getGamesList(lines);
+        } catch (NumberFormatException e) {
+            event.reply("Wrong message format! Correct format is: PlayerA PlayerA_rate PlayerB PlayerB_rate." +
+                            " Rates should be written using dot e.g. 0.1 or as whole numbers e.g. 2")
+                    .setEphemeral(true).queue();
+            return;
+        }
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
+        }
+        TextChannel channel = guild.getTextChannelById(BETTING_CHANNEL_ID);
+        if (channel == null) {
+            return;
+        }
+        games.forEach(game -> channel.sendMessagePoll(
+                        MessagePollData.builder("%s vs %s".formatted(game.playerA, game.playerB))
+                                .addAnswer("%s %.02f".formatted(game.playerA, game.scoreA))
+                                .addAnswer("%s %.02f".formatted(game.playerB, game.scoreB))
+                                .setDuration(Duration.ofDays(7))
+                                .build()
+                ).queue()
+        );
+        event.reply("Successfully created polls!").setEphemeral(true).queue();
+    }
+
+    private List<Game> getGamesList(String... lines) throws NumberFormatException {
+        List<Game> games;
+        System.out.println(lines[0]);
+        System.out.println("=".repeat(40));
+        System.out.println(Arrays.toString(lines[0].split(" ")));
+        games = Arrays.stream(lines)
+                .map(String::trim)
+                .map(line -> line.split(" "))
+                .map(split -> new Game(split[0], Double.parseDouble(split[1]),
+                        split[2], Double.parseDouble(split[3])))
+                .toList();
+
+        return games;
+    }
+
+    private synchronized void createChannelHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
         if (guild == null) {
             event.reply("This command can only be used in a server.").setEphemeral(true).queue();
@@ -52,6 +119,9 @@ public class SlashCommandListener extends ListenerAdapter {
         }
         Member playerA = Objects.requireNonNull(event.getOption("first-player")).getAsMember();
         Member playerB = Objects.requireNonNull(event.getOption("second-player")).getAsMember();
+        if(playerA == null || playerB == null) {
+            return;
+        }
         var matchChannel = createMatchChannel(guild, playerA, playerB);
         if (matchChannel == null) {
             event.reply("Match channel already exists!").setEphemeral(true).queue();
@@ -74,10 +144,9 @@ public class SlashCommandListener extends ListenerAdapter {
     private void showWelcomeMessageHandler(SlashCommandInteractionEvent event) {
         String welcomeMessage;
         welcomeReadLock.lock();
-        try{
+        try {
             welcomeMessage = readWelcomeMessage();
-        }
-        finally {
+        } finally {
             welcomeReadLock.unlock();
         }
         if (welcomeMessage == null) {
@@ -96,8 +165,7 @@ public class SlashCommandListener extends ListenerAdapter {
         welcomeWriteLock.lock();
         try {
             writeToFile(message, Path.of(WELCOME_MESSAGE_PATH));
-        }
-        finally {
+        } finally {
             welcomeWriteLock.unlock();
         }
         event.reply("Welcome message has been set successfully")
@@ -105,8 +173,8 @@ public class SlashCommandListener extends ListenerAdapter {
                 .queue();
     }
 
-    private void writeToFile(String message, Path path){
-        try(var writer = Files.newBufferedWriter(path)){
+    private void writeToFile(String message, Path path) {
+        try (var writer = Files.newBufferedWriter(path)) {
             writer.write(message);
         } catch (IOException e) {
             System.out.println("Error occurred while trying to write to welcomeMessage.txt: " + e.getMessage());
@@ -116,10 +184,9 @@ public class SlashCommandListener extends ListenerAdapter {
     private void showRolesHandler(SlashCommandInteractionEvent event) {
         List<Role> roleList;
         roleReadLock.lock();
-        try{
+        try {
             roleList = readRoles(Objects.requireNonNull(event.getGuild()));
-        }
-        finally {
+        } finally {
             roleReadLock.unlock();
         }
         if (roleList == null || roleList.isEmpty()) {
@@ -133,10 +200,9 @@ public class SlashCommandListener extends ListenerAdapter {
     private void addRoleHandler(SlashCommandInteractionEvent event) {
         List<Role> roleList;
         roleReadLock.lock();
-        try{
+        try {
             roleList = readRoles(Objects.requireNonNull(event.getGuild()));
-        }
-        finally {
+        } finally {
             roleReadLock.unlock();
         }
         Role newRole = Objects.requireNonNull(event.getOption("role")).getAsRole();
@@ -146,11 +212,10 @@ public class SlashCommandListener extends ListenerAdapter {
         }
         roleList.add(newRole);
         roleWriteLock.lock();
-        try{
+        try {
             writeToFile(roleList.stream().map(Role::getName).collect(Collectors.joining(System.lineSeparator())),
                     Path.of(ROLES_PATH));
-        }
-        finally {
+        } finally {
             roleWriteLock.unlock();
         }
         event.reply("Added " + newRole.getAsMention() + " successfully").setEphemeral(true).queue();
@@ -159,27 +224,26 @@ public class SlashCommandListener extends ListenerAdapter {
     private void removeRoleHandler(SlashCommandInteractionEvent event) {
         List<Role> roleList;
         roleReadLock.lock();
-        try{
+        try {
             roleList = readRoles(Objects.requireNonNull(event.getGuild()));
-        }
-        finally {
+        } finally {
             roleReadLock.unlock();
         }
         Role roleToRemove = Objects.requireNonNull(event.getOption("role")).getAsRole();
         roleList.remove(roleToRemove);
         roleWriteLock.lock();
-        try{
+        try {
             writeToFile(roleList.stream().map(Role::getName).collect(Collectors.joining(System.lineSeparator())),
                     Path.of(ROLES_PATH));
-        }
-        finally {
+        } finally {
             roleWriteLock.unlock();
         }
         event.reply("Removed " + roleToRemove.getAsMention() + " successfully").setEphemeral(true).queue();
     }
 
     private ChannelAction<TextChannel> createMatchChannel(Guild guild, Member playerA, Member playerB) {
-        Category category = guild.getCategoriesByName(TARGET_CATEGORY_NAME, true).getFirst();
+        System.out.println(guild.getCategories());
+        Category category = guild.getCategoryById(TARGET_CATEGORY_ID);
         String playerAName = playerA.getEffectiveName().toLowerCase();
         String playerBName = playerB.getEffectiveName().toLowerCase();
         if (matchChannelExists(playerAName, playerBName, category)) {
@@ -194,10 +258,9 @@ public class SlashCommandListener extends ListenerAdapter {
 
         List<Role> roleList;
         roleReadLock.lock();
-        try{
+        try {
             roleList = readRoles(guild);
-        }
-        finally {
+        } finally {
             roleReadLock.unlock();
         }
         if (roleList != null && !roleList.isEmpty()) {
@@ -216,7 +279,7 @@ public class SlashCommandListener extends ListenerAdapter {
         try (Scanner scanner = new Scanner(Path.of(ROLES_PATH))) {
             scanner.useDelimiter(System.lineSeparator());
             List<String> rolesNames = scanner.tokens().toList();
-            if(rolesNames.isEmpty()) {
+            if (rolesNames.isEmpty()) {
                 return new ArrayList<>();
             }
             var tokens = rolesNames.stream()
@@ -233,18 +296,17 @@ public class SlashCommandListener extends ListenerAdapter {
     private String getWelcomeMessage(Guild guild, Member playerA, Member playerB) {
         String message;
         welcomeReadLock.lock();
-        try{
+        try {
             message = readWelcomeMessage();
-        }
-        finally {
+        } finally {
             welcomeReadLock.unlock();
         }
         if (message == null || message.isEmpty()) {
             return "No welcome message set";
         }
-        var supportChannels = guild.getTextChannelsByName("support", true);
+        var supportChannels = guild.getTextChannelById(SUPPORT_CHANNEL_ID);
         message = message.replaceAll("\\{support}",
-                supportChannels.isEmpty() ? "Support" : supportChannels.getFirst().getAsMention());
+                supportChannels == null ? "Support" : supportChannels.getAsMention());
         return fillPlayersInMessage(message, playerA, playerB);
     }
 
