@@ -1,6 +1,7 @@
 package com.packt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.packt.controllers.CommandListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -30,7 +31,7 @@ public class Main {
 
         JDA api = JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT)
-                .addEventListeners(new SlashCommandListener())
+                .addEventListeners(new CommandListener())
                 .build();
 
         CommandListUpdateAction commands = api.updateCommands();
@@ -52,6 +53,21 @@ public class Main {
                                 .addOption(STRING, "message", "Welcome message to set", true)
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("show-welcome-message", "Shows message which will be sent by bot after channel creation")
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("set-games-category", "Sets category in which match channels will be created")
+                                .addOption(OptionType.CHANNEL, "category", "Category for match channels", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("show-games-category", "Shows category in which match channels will be created")
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("set-betting-channel", "Sets betting channel which will be used to host betting polls")
+                                .addOption(OptionType.CHANNEL, "betting-channel", "Betting channel", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("show-betting-channel", "Shows betting channel which will be used to host betting polls")
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("set-support-channel", "Sets support channel")
+                                .addOption(OptionType.CHANNEL, "support-channel", "Support channel", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("show-support-channel", "Shows support channel set")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.message("Create betting polls")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
