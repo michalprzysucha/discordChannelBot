@@ -22,18 +22,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class CommandListener extends ListenerAdapter {
-    private final ReentrantReadWriteLock welcomeLock = new ReentrantReadWriteLock(true);
-    private final ReentrantReadWriteLock roleLock = new ReentrantReadWriteLock(true);
-    private final Lock welcomeReadLock = welcomeLock.readLock();
-    private final Lock welcomeWriteLock = welcomeLock.writeLock();
-    private final Lock roleReadLock = roleLock.readLock();
-    private final Lock roleWriteLock = roleLock.writeLock();
-
     private final BettingService bettingService = new BettingServiceImpl();
     private final TextChannelService textChannelService = new TextChannelServiceImpl();
     private final ConfigService configService = new ConfigServiceImpl();
@@ -49,6 +40,7 @@ public class CommandListener extends ListenerAdapter {
         switch (event.getName()){
             case "Create betting polls" -> createPollHandler(event);
             case "Close poll" -> closePollHandler(event);
+            case "Set welcome message" -> setWelcomeMessageHandler(event);
         }
     }
 
@@ -60,13 +52,10 @@ public class CommandListener extends ListenerAdapter {
             case "add-role" -> addRoleHandler(event);
             case "remove-role" -> removeRoleHandler(event);
             case "show-welcome-message" -> showWelcomeMessageHandler(event);
-            case "set-welcome-message" -> setWelcomeMessageHandler(event);
             case "set-games-category" -> setGamesCategoryHandler(event);
             case "show-games-category" -> showGamesCategoryHandler(event);
             case "set-betting-channel" -> setBettingChannelHandler(event);
             case "show-betting-channel" -> showBettingChannelHandler(event);
-            case "set-support-channel" -> setSupportChannelHandler(event);
-            case "show-support-channel" -> showSupportChannelHandler(event);
             default -> event.reply("Unknown command!").setEphemeral(true).queue();
         }
     }
@@ -105,13 +94,14 @@ public class CommandListener extends ListenerAdapter {
         if(textChannel == null){
             event.reply("Failed to create channel! Channel already exists or no category was set")
                     .setEphemeral(true).queue();
+            return;
         }
         textChannelService.editChannel(textChannel, guild, playerA, playerB).queue(
                 (TextChannel channel) -> {
                     event.reply("Text channel `" + channel.getName() + "` has been created!")
                             .setEphemeral(true)
                             .queue();
-                    channel.sendMessage(replacePlaceholdersInMessage(guild, playerA, playerB)).queue();
+                    channel.sendMessage(configService.getWelcomeMessage(Path.of(guild.getName() + ".json"))).queue();
                 },
                 (Throwable error) -> event.reply("Failed to create the channel.")
                         .setEphemeral(true)
@@ -137,12 +127,12 @@ public class CommandListener extends ListenerAdapter {
                 .queue();
     }
 
-    private void setWelcomeMessageHandler(SlashCommandInteractionEvent event) {
+    private void setWelcomeMessageHandler(@NotNull MessageContextInteractionEvent event) {
         Guild guild = event.getGuild();
         if(guild == null){
             return;
         }
-        String message = Objects.requireNonNull(event.getOption("message")).getAsString();
+        String message = event.getTarget().getContentRaw();
         Path jsonConfig = Path.of(guild.getName() + ".json");
         configService.setWelcomeMessage(jsonConfig, message);
         event.reply("Welcome message has been set successfully")
@@ -248,44 +238,5 @@ public class CommandListener extends ListenerAdapter {
             return;
         }
         event.reply("Betting channel is set to: " + channel.getAsMention()).setEphemeral(true).queue();
-    }
-
-    private void setSupportChannelHandler(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if(guild == null){
-            return;
-        }
-        Path jsonConfig = Path.of(guild.getName() + ".json");
-        TextChannel channel = Objects.requireNonNull(event.getOption("support-channel")).getAsChannel().asTextChannel();
-        configService.setChannel(jsonConfig, "support_channel_id", channel, guild);
-        event.reply("Successfully set support channel!").setEphemeral(true).queue();
-    }
-
-    private void showSupportChannelHandler(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if(guild == null){
-            return;
-        }
-        Path jsonConfig = Path.of(guild.getName() + ".json");
-        TextChannel channel = configService.getChannel(jsonConfig, "support_channel_id", guild);
-        if (channel == null) {
-            event.reply("No support channel set").setEphemeral(true).queue();
-            return;
-        }
-        event.reply("Support channel is set to: " + channel.getAsMention()).setEphemeral(true).queue();
-    }
-
-    private String replacePlaceholdersInMessage(Guild guild, Member playerA, Member playerB) {
-        Path jsonConfig = Path.of(guild.getName() + ".json");
-        String message = configService.getWelcomeMessage(jsonConfig);
-        if (message == null || message.isEmpty()) {
-            return "No welcome message set";
-        }
-        TextChannel supportChannels = configService.getChannel(jsonConfig, "support_channel_id", guild);
-        message = message.replaceAll("\\{support}",
-                supportChannels == null ? "Support" : supportChannels.getAsMention());
-        message = message.replaceAll("\\{playerA}", playerA.getAsMention());
-        message = message.replaceAll("\\{playerB}", playerB.getAsMention());
-        return message;
     }
 }

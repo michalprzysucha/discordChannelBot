@@ -27,12 +27,12 @@ public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
 
     @Override
     public void createGuildConfigFile(Path path) {
-        if(Files.exists(path)) {
-            return;
-        }
         ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock(true);
         readLocks.put(path.toString(), reentrantReadWriteLock.readLock());
         writeLocks.put(path.toString(), reentrantReadWriteLock.writeLock());
+        if(Files.exists(path)) {
+            return;
+        }
         try {
             Path configFile = Files.createFile(path);
             ObjectNode jsonNode = MAPPER.createObjectNode();
@@ -40,7 +40,6 @@ public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
             jsonNode.putNull("welcome_message");
             jsonNode.putNull("games_category_id");
             jsonNode.putNull("betting_channel_id");
-            jsonNode.putNull("support_channel_id");
             MAPPER.writeValue(Files.newBufferedWriter(configFile), jsonNode);
         } catch (FileAlreadyExistsException e) {
             System.out.println("File already exits: " + e.getMessage());
@@ -51,18 +50,8 @@ public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
 
     @Override
     public void setJsonValue(String key, String value, Path path) {
-        JsonNode root;
-        Lock lock = readLocks.get(path.toString());
-        lock.lock();
-        try (var reader = Files.newBufferedReader(path)) {
-            root = MAPPER.readTree(reader);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        finally {
-            lock.unlock();
-        }
-        lock = writeLocks.get(path.toString());
+        JsonNode root = readJsonRoot(path);
+        Lock lock = writeLocks.get(path.toString());
         lock.lock();
         try(var writer = Files.newBufferedWriter(path)){
             ObjectNode objectNode = (ObjectNode) root;
@@ -78,18 +67,8 @@ public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
 
     @Override
     public void setJsonValue(String key, List<String> values, Path path) {
-        JsonNode root;
-        Lock lock = readLocks.get(path.toString());
-        lock.lock();
-        try (var reader = Files.newBufferedReader(path)) {
-            root = MAPPER.readTree(reader);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        finally {
-            lock.unlock();
-        }
-        lock = writeLocks.get(path.toString());
+        JsonNode root = readJsonRoot(path);
+        Lock lock = writeLocks.get(path.toString());
         lock.lock();
         try(var writer = Files.newBufferedWriter(path)) {
             ObjectNode objectNode = (ObjectNode) root;
@@ -127,5 +106,20 @@ public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
         finally {
             lock.unlock();
         }
+    }
+
+    private JsonNode readJsonRoot(Path path) {
+        JsonNode root;
+        Lock lock = readLocks.get(path.toString());
+        lock.lock();
+        try (var reader = Files.newBufferedReader(path)) {
+            root = MAPPER.readTree(reader);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            lock.unlock();
+        }
+        return root;
     }
 }

@@ -15,8 +15,6 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-
 public class Main {
     public static void main(String[] arguments) throws Exception {
         String token;
@@ -49,9 +47,6 @@ public class Main {
                         Commands.slash("remove-role", "Removes role which would be added by bot to channels created by it")
                                 .addOption(OptionType.ROLE, "role", "Role to remove", true)
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
-                        Commands.slash("set-welcome-message", "Sets message which will be sent by bot after channel creation")
-                                .addOption(STRING, "message", "Welcome message to set", true)
-                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("show-welcome-message", "Shows message which will be sent by bot after channel creation")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("set-games-category", "Sets category in which match channels will be created")
@@ -64,14 +59,11 @@ public class Main {
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("show-betting-channel", "Shows betting channel which will be used to host betting polls")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
-                        Commands.slash("set-support-channel", "Sets support channel")
-                                .addOption(OptionType.CHANNEL, "support-channel", "Support channel", true)
-                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
-                        Commands.slash("show-support-channel", "Shows support channel set")
-                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.message("Create betting polls")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.message("Close poll")
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.message("Set welcome message")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS))
                 )
                 .queue();
