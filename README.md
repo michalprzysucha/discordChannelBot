@@ -1,0 +1,1 @@
+Discord bot to create text channels using slash commands. Slash command to create channel takes two arguments: players' names. Bot allows to customize roles which would be added to a new channel and text message sent after channel's creation. Bot also supports creating betting polls from given text message using context menu.
