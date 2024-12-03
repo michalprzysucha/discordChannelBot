@@ -101,7 +101,10 @@ public class CommandListener extends ListenerAdapter {
                     event.reply("Text channel `" + channel.getName() + "` has been created!")
                             .setEphemeral(true)
                             .queue();
-                    channel.sendMessage(configService.getWelcomeMessage(Path.of(guild.getName() + ".json"))).queue();
+                    channel.sendMessage(fillPlayersPlaceholders(
+                            configService.getWelcomeMessage(Path.of(guild.getName() + ".json")),
+                                    playerA, playerB))
+                            .queue();
                 },
                 (Throwable error) -> event.reply("Failed to create the channel.")
                         .setEphemeral(true)
@@ -238,5 +241,11 @@ public class CommandListener extends ListenerAdapter {
             return;
         }
         event.reply("Betting channel is set to: " + channel.getAsMention()).setEphemeral(true).queue();
+    }
+
+    private String fillPlayersPlaceholders(String message, Member playerA, Member playerB) {
+        message = message.replaceAll("\\{playerA}", playerA.getAsMention());
+        message = message.replaceAll("\\{playerB}", playerB.getAsMention());
+        return message;
     }
 }
