@@ -35,13 +35,14 @@ public class Main {
         CommandListUpdateAction commands = api.updateCommands();
 
         commands.addCommands(
+                        // Creating text channels
                         Commands.slash("create-channel", "Creates a new match channel")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS))
                                 .addOption(OptionType.USER, "first-player", "First player in a match", true)
                                 .addOption(OptionType.USER, "second-player", "Second player in a match", true),
-                        Commands.slash("show-roles", "Show roles to add to channels created by this bot")
+                        Commands.slash("show-roles", "Shows roles to add to channels created by this bot")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
-                        Commands.slash("add-role", "Add role which will be added by bot to channels created by it")
+                        Commands.slash("add-role", "Adds role which will be added by bot to channels created by it")
                                 .addOption(OptionType.ROLE, "role", "Role to add", true)
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("remove-role", "Removes role which would be added by bot to channels created by it")
@@ -54,6 +55,23 @@ public class Main {
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("show-games-category", "Shows category in which match channels will be created")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+
+                        // Rating system
+                        Commands.slash("add-player", "Register player to the ranking")
+                                .addOption(OptionType.STRING, "player-name", "Player to add to the ranking", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("remove-player", "Removes player from the ranking system")
+                                .addOption(OptionType.STRING, "player-name", "Player to be removed from the ranking", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("publish-ratings", "Publishes players and their ratings")
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("save-match-result", "Saves match result and updates players' ratings")
+                                .addOption(OptionType.STRING, "first-player-name", "First player in the match", true)
+                                .addOption(OptionType.STRING, "second-player-name", "Second player in the match", true)
+                                .addOption(OptionType.INTEGER, "first-player-score", "Games won in the match by first player", true)
+                                .addOption(OptionType.INTEGER, "second-player-score", "Games won in the match by second player", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        // Betting
                         Commands.slash("set-betting-channel", "Sets betting channel which will be used to host betting polls")
                                 .addOption(OptionType.CHANNEL, "betting-channel", "Betting channel", true)
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),

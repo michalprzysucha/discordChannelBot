@@ -1,11 +1,16 @@
 package com.packt.controllers;
 
+import com.packt.models.GameMatch;
+import com.packt.models.Player;
 import com.packt.services.BettingService;
 import com.packt.services.ConfigService;
+import com.packt.services.RatingSystemService;
 import com.packt.services.TextChannelService;
 import com.packt.services.impl.BettingServiceImpl;
 import com.packt.services.impl.ConfigServiceImpl;
+import com.packt.services.impl.RatingSystemServiceImpl;
 import com.packt.services.impl.TextChannelServiceImpl;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.Member;
@@ -20,14 +25,19 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.*;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class CommandListener extends ListenerAdapter {
     private final BettingService bettingService = new BettingServiceImpl();
     private final TextChannelService textChannelService = new TextChannelServiceImpl();
     private final ConfigService configService = new ConfigServiceImpl();
+    private final RatingSystemService ratingSystemService = new RatingSystemServiceImpl();
 
     @Override
     public void onGuildJoin(@NotNull GuildJoinEvent event) {
@@ -56,7 +66,73 @@ public class CommandListener extends ListenerAdapter {
             case "show-games-category" -> showGamesCategoryHandler(event);
             case "set-betting-channel" -> setBettingChannelHandler(event);
             case "show-betting-channel" -> showBettingChannelHandler(event);
+            case "add-player" -> addPlayerHandler(event);
+            case "remove-player" -> removePlayerHandler(event);
+            case "save-match-result" -> saveMatchResultHandler(event);
+            case "publish-ratings" -> publishRatingsHandler(event);
             default -> event.reply("Unknown command!").setEphemeral(true).queue();
+        }
+    }
+
+    private void publishRatingsHandler(SlashCommandInteractionEvent event) {
+        List<Player> players = ratingSystemService.getAllPlayers();
+        players = players.stream()
+                .sorted(Comparator.comparing(Player::getRating).reversed())
+                .toList();
+        StringBuilder ratings = new StringBuilder("```\n");
+        for (int i = 0; i < players.size(); i++) {
+            ratings.append("%10s %20s %10s%n".formatted(
+                    i + 1 + ".", players.get(i).getName(), Math.round(players.get(i).getRating())
+            ));
+        }
+        ratings.append("```");
+        event.getChannel().asTextChannel().sendMessage(ratings).queue();
+        event.reply("Successfully published ratings!").setEphemeral(true).queue();
+    }
+
+    private synchronized void addPlayerHandler(SlashCommandInteractionEvent event) {
+        String playerName = Objects.requireNonNull(event.getOption("player-name")).getAsString();
+        boolean flag = ratingSystemService.addPlayer(playerName);
+        if (flag) {
+            event.reply("Successfully added " + playerName + "!").setEphemeral(true).queue();
+        }
+        else {
+            event.reply("Cannot add player. Player " + playerName + " already exists!").setEphemeral(true).queue();
+        }
+    }
+
+    private synchronized void removePlayerHandler(SlashCommandInteractionEvent event) {
+        String playerName = Objects.requireNonNull(event.getOption("player-name")).getAsString();
+        boolean flag = ratingSystemService.removePlayer(playerName);
+        if (flag) {
+            event.reply("Successfully removed " + playerName + "!").setEphemeral(true).queue();
+        }
+        else{
+            event.reply("Cannot remove player. Player " + playerName + " is not present in ranking!").setEphemeral(true).queue();
+        }
+    }
+
+    private synchronized void saveMatchResultHandler(SlashCommandInteractionEvent event) {
+        String firstPlayerName = Objects.requireNonNull(event.getOption("first-player-name")).getAsString();
+        String secondPlayerName = Objects.requireNonNull(event.getOption("second-player-name")).getAsString();
+        int firstPlayerScore = Objects.requireNonNull(event.getOption("first-player-score")).getAsInt();
+        int secondPlayerScore = Objects.requireNonNull(event.getOption("second-player-score")).getAsInt();
+        boolean flag = ratingSystemService.saveMatchResult(firstPlayerName, secondPlayerName,
+                firstPlayerScore, secondPlayerScore);
+        if (flag) {
+            event.reply("Successfully saved match!").setEphemeral(true).queue();
+            EmbedBuilder eb = new EmbedBuilder();
+            eb.setTitle("Game saved!");
+            eb.setDescription("%s **%d - %d** %s"
+                    .formatted(firstPlayerName, firstPlayerScore, secondPlayerScore, secondPlayerName));
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+            LocalDateTime now = LocalDateTime.now();
+            eb.setFooter(formatter.format(now), null);
+            eb.setColor(new Color(33, 85, 205));
+            event.getChannel().asTextChannel().sendMessageEmbeds(eb.build()).queue();
+        }
+        else {
+            event.reply("Failed to save the result. Check if both players exist in ranking").setEphemeral(true).queue();
         }
     }
 
