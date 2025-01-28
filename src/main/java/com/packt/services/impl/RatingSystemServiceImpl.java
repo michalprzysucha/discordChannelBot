@@ -38,18 +38,18 @@ public class RatingSystemServiceImpl implements RatingSystemService {
     }
 
     @Override
-    public boolean saveMatchResult(String firstPlayerName, String secondPlayerName, int firstPlayerScore, int secondPlayerScore) {
+    public GameMatch saveMatchResult(String firstPlayerName, String secondPlayerName, int firstPlayerScore, int secondPlayerScore) {
         Player firstPlayer = getPlayer(firstPlayerName);
         Player secondPlayer = getPlayer(secondPlayerName);
         if (firstPlayer == null || secondPlayer == null) {
-            return false;
+            return null;
         }
         GameMatch gameMatch = new GameMatch(firstPlayer, secondPlayer, firstPlayerScore, secondPlayerScore);
         EloRatingCalculator.updateRatings(gameMatch);
         playerRepository.update(firstPlayer);
         playerRepository.update(secondPlayer);
         playerRepository.update(gameMatch);
-        return true;
+        return gameMatch;
     }
 
     @Override

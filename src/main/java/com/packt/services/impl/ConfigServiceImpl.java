@@ -69,8 +69,8 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
-    public void setCategory(Path path, Category category, Guild guild) {
-        configJsonRepository.setJsonValue("games_category_id", category.getId(), path);
+    public void setCategory(Path path, String jsonKey, Category category) {
+        configJsonRepository.setJsonValue(jsonKey, category.getId(), path);
     }
 
     @Override
@@ -79,8 +79,8 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
-    public Category getGamesCategory(Path path, Guild guild) {
-        List<String> values = configJsonRepository.getJsonValue("games_category_id", path);
+    public Category getCategory(Path path, String jsonKey, Guild guild) {
+        List<String> values = configJsonRepository.getJsonValue(jsonKey, path);
         if (values == null){
             return null;
         }

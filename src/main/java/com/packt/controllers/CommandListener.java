@@ -1,5 +1,6 @@
 package com.packt.controllers;
 
+import com.packt.Main;
 import com.packt.models.GameMatch;
 import com.packt.models.Player;
 import com.packt.services.BettingService;
@@ -29,8 +30,9 @@ import java.awt.*;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class CommandListener extends ListenerAdapter {
@@ -47,7 +49,7 @@ public class CommandListener extends ListenerAdapter {
 
     @Override
     public void onMessageContextInteraction(@NotNull MessageContextInteractionEvent event) {
-        switch (event.getName()){
+        switch (event.getName()) {
             case "Create betting polls" -> createPollHandler(event);
             case "Close poll" -> closePollHandler(event);
             case "Set welcome message" -> setWelcomeMessageHandler(event);
@@ -70,88 +72,189 @@ public class CommandListener extends ListenerAdapter {
             case "remove-player" -> removePlayerHandler(event);
             case "save-match-result" -> saveMatchResultHandler(event);
             case "publish-ratings" -> publishRatingsHandler(event);
+            case "set-rating-channel" -> setRatingChannelHandler(event);
+            case "show-rating-channel" -> showRatingChannelHandler(event);
             default -> event.reply("Unknown command!").setEphemeral(true).queue();
         }
     }
 
-    private void publishRatingsHandler(SlashCommandInteractionEvent event) {
-        List<Player> players = ratingSystemService.getAllPlayers();
-        players = players.stream()
-                .sorted(Comparator.comparing(Player::getRating).reversed())
-                .toList();
-        StringBuilder ratings = new StringBuilder("```\n");
-        for (int i = 0; i < players.size(); i++) {
-            ratings.append("%10s %20s %10s%n".formatted(
-                    i + 1 + ".", players.get(i).getName(), Math.round(players.get(i).getRating())
-            ));
+    private synchronized void publishRatingsHandler(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
         }
-        ratings.append("```");
-        event.getChannel().asTextChannel().sendMessage(ratings).queue();
+        List<Player> players = ratingSystemService.getAllPlayers();
+        String ratings = concatPlayers(players);
+
+        Path jsonConfig = Path.of(guild.getName() + ".json");
+        TextChannel channel = configService.getChannel(jsonConfig, "rating_channel_id", guild);
+        if (channel == null) {
+            channel = event.getChannel().asTextChannel();
+        }
+        channel.sendMessage(ratings).queue();
         event.reply("Successfully published ratings!").setEphemeral(true).queue();
     }
 
     private synchronized void addPlayerHandler(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
+        }
         String playerName = Objects.requireNonNull(event.getOption("player-name")).getAsString();
         boolean flag = ratingSystemService.addPlayer(playerName);
-        if (flag) {
-            event.reply("Successfully added " + playerName + "!").setEphemeral(true).queue();
+
+        String noRatingChannelMsg = "";
+        if (!isRatingChannelSet(guild)) {
+            noRatingChannelMsg = " WARNING: No rating channel is set. To automatically post players rating you need to " +
+                    "set it first with: /set-rating-channel";
+        } else {
+            updateRatingChannel(guild);
         }
-        else {
+        if (flag) {
+            event.reply("Successfully added " + playerName + "!" + noRatingChannelMsg).setEphemeral(true).queue();
+        } else {
             event.reply("Cannot add player. Player " + playerName + " already exists!").setEphemeral(true).queue();
         }
     }
 
     private synchronized void removePlayerHandler(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
+        }
         String playerName = Objects.requireNonNull(event.getOption("player-name")).getAsString();
         boolean flag = ratingSystemService.removePlayer(playerName);
-        if (flag) {
-            event.reply("Successfully removed " + playerName + "!").setEphemeral(true).queue();
+        String noRatingChannelMsg = "";
+        if (!isRatingChannelSet(guild)) {
+            noRatingChannelMsg = " WARNING: No rating channel is set. To automatically post players rating you need to " +
+                    "set it first with: /set-rating-channel";
+        } else {
+            updateRatingChannel(guild);
         }
-        else{
+        if (flag) {
+            event.reply("Successfully removed " + playerName + "!" + noRatingChannelMsg).setEphemeral(true).queue();
+        } else {
             event.reply("Cannot remove player. Player " + playerName + " is not present in ranking!").setEphemeral(true).queue();
         }
     }
 
     private synchronized void saveMatchResultHandler(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
+        }
+        String noRatingChannelMsg = "";
         String firstPlayerName = Objects.requireNonNull(event.getOption("first-player-name")).getAsString();
         String secondPlayerName = Objects.requireNonNull(event.getOption("second-player-name")).getAsString();
         int firstPlayerScore = Objects.requireNonNull(event.getOption("first-player-score")).getAsInt();
         int secondPlayerScore = Objects.requireNonNull(event.getOption("second-player-score")).getAsInt();
-        boolean flag = ratingSystemService.saveMatchResult(firstPlayerName, secondPlayerName,
+        GameMatch gameMatch = ratingSystemService.saveMatchResult(firstPlayerName, secondPlayerName,
                 firstPlayerScore, secondPlayerScore);
-        if (flag) {
-            event.reply("Successfully saved match!").setEphemeral(true).queue();
-            EmbedBuilder eb = new EmbedBuilder();
-            eb.setTitle("Game saved!");
-            eb.setDescription("%s **%d - %d** %s"
-                    .formatted(firstPlayerName, firstPlayerScore, secondPlayerScore, secondPlayerName));
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-            LocalDateTime now = LocalDateTime.now();
-            eb.setFooter(formatter.format(now), null);
-            eb.setColor(new Color(33, 85, 205));
-            event.getChannel().asTextChannel().sendMessageEmbeds(eb.build()).queue();
+        if (!isRatingChannelSet(guild)) {
+            noRatingChannelMsg = " WARNING: No rating channel is set. To automatically post players rating you need to " +
+                    "set it first with: /set-rating-channel";
+        } else {
+            updateRatingChannel(guild);
         }
-        else {
+        if (gameMatch == null) {
             event.reply("Failed to save the result. Check if both players exist in ranking").setEphemeral(true).queue();
+            return;
         }
+        event.reply("Successfully saved match!" + noRatingChannelMsg).setEphemeral(true).queue();
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setTitle("Game saved!");
+        eb.setDescription("%s **%d - %d** %s"
+                .formatted(firstPlayerName, firstPlayerScore, secondPlayerScore, secondPlayerName));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+        LocalDateTime now = LocalDateTime.now();
+        eb.setFooter(formatter.format(now), null);
+        eb.setColor(new Color(33, 85, 205));
+        eb.addField(firstPlayerName + "'s rating change",
+                Long.toString(Math.round(gameMatch.getPlayerARatingChange())), true);
+        eb.addBlankField(true);
+        eb.addField(secondPlayerName + "'s rating change",
+                Long.toString(Math.round(gameMatch.getPlayerBRatingChange())), true);
+        event.getChannel().asTextChannel().sendMessageEmbeds(eb.build()).queue();
+
     }
 
-    private synchronized void closePollHandler(@NotNull MessageContextInteractionEvent event){
+    private boolean isRatingChannelSet(Guild guild) {
+        Path jsonConfig = Path.of(guild.getName() + ".json");
+        TextChannel channel = configService.getChannel(jsonConfig, "rating_channel_id", guild);
+        return channel != null;
+    }
+
+    private String concatPlayers(List<Player> players) {
+        players = players.stream()
+                .sorted(Comparator.comparing(Player::getRating).reversed())
+                .toList();
+        StringBuilder ratings = new StringBuilder("```\n");
+        for (int i = 0; i < players.size(); i++) {
+            ratings.append("%10s %10s %20s%n".formatted(
+                    i + 1 + ".", Math.round(players.get(i).getRating()), players.get(i).getName()
+            ));
+        }
+        ratings.append("```");
+        return ratings.toString();
+    }
+
+    private void setRatingChannelHandler(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
+        }
+        Path jsonConfig = Path.of(guild.getName() + ".json");
+        TextChannel channel = Objects.requireNonNull(event.getOption("rating-channel")).getAsChannel().asTextChannel();
+        configService.setChannel(jsonConfig, "rating_channel_id", channel, guild);
+        event.reply("Successfully set rating channel!").setEphemeral(true).queue();
+    }
+
+    private void showRatingChannelHandler(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null) {
+            return;
+        }
+        Path jsonConfig = Path.of(guild.getName() + ".json");
+        TextChannel channel = configService.getChannel(jsonConfig, "rating_channel_id", guild);
+        if (channel == null) {
+            event.reply("No rating channel set").setEphemeral(true).queue();
+            return;
+        }
+        event.reply("Rating channel is set to: " + channel.getAsMention()).setEphemeral(true).queue();
+    }
+
+    private void updateRatingChannel(Guild guild) {
+        Path jsonConfig = Path.of(guild.getName() + ".json");
+        TextChannel channel = configService.getChannel(jsonConfig, "rating_channel_id", guild);
+        deleteAllPreviousMsgs(channel);
+        channel.sendMessage(concatPlayers(ratingSystemService.getAllPlayers())).queue();
+    }
+
+    private void deleteAllPreviousMsgs(TextChannel channel) {
+        channel.getIterableHistory()
+                .cache(false)
+                .forEach(message -> {
+                    if (message.getAuthor().getId().equals(Main.BOT_ID)) {
+                        message.delete().queue();
+                    }
+                });
+    }
+
+
+    private synchronized void closePollHandler(@NotNull MessageContextInteractionEvent event) {
         bettingService.closePoll(event);
         event.reply("Successfully closed poll!").setEphemeral(true).queue();
     }
 
     private synchronized void createPollHandler(@NotNull MessageContextInteractionEvent event) {
-        try{
+        try {
             boolean flag = bettingService.createPoll(event);
-            if(flag) {
+            if (flag) {
                 event.reply("Successfully created polls!").setEphemeral(true).queue();
-            }
-            else {
+            } else {
                 event.reply("Failed to create poll! Check if betting channel is set").setEphemeral(true).queue();
             }
-        }
-        catch (NumberFormatException e) {
+        } catch (NumberFormatException e) {
             event.reply("Wrong message format! Correct format is: PlayerA PlayerA_rate PlayerB PlayerB_rate." +
                             " Rates should be written using dot e.g. 0.1 or as whole numbers e.g. 2")
                     .setEphemeral(true).queue();
@@ -167,7 +270,7 @@ public class CommandListener extends ListenerAdapter {
         Member playerA = Objects.requireNonNull(event.getOption("first-player")).getAsMember();
         Member playerB = Objects.requireNonNull(event.getOption("second-player")).getAsMember();
         var textChannel = textChannelService.createChannel(guild, playerA, playerB);
-        if(textChannel == null){
+        if (textChannel == null) {
             event.reply("Failed to create channel! Channel already exists or no category was set")
                     .setEphemeral(true).queue();
             return;
@@ -178,7 +281,7 @@ public class CommandListener extends ListenerAdapter {
                             .setEphemeral(true)
                             .queue();
                     channel.sendMessage(fillPlayersPlaceholders(
-                            configService.getWelcomeMessage(Path.of(guild.getName() + ".json")),
+                                    configService.getWelcomeMessage(Path.of(guild.getName() + ".json")),
                                     playerA, playerB))
                             .queue();
                 },
@@ -190,7 +293,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void showWelcomeMessageHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
@@ -208,7 +311,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void setWelcomeMessageHandler(@NotNull MessageContextInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         String message = event.getTarget().getContentRaw();
@@ -221,7 +324,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void showRolesHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
@@ -236,7 +339,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void addRoleHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
@@ -251,7 +354,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void removeRoleHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
@@ -266,27 +369,27 @@ public class CommandListener extends ListenerAdapter {
 
     private void setGamesCategoryHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
         GuildChannelUnion channelUnion = Objects.requireNonNull(event.getOption("category")).getAsChannel();
-        if (!channelUnion.getType().equals(ChannelType.CATEGORY)){
+        if (!channelUnion.getType().equals(ChannelType.CATEGORY)) {
             event.reply("You need to pass category not a channel!").setEphemeral(true).queue();
             return;
         }
         Category category = channelUnion.asCategory();
-        configService.setCategory(jsonConfig, category, guild);
+        configService.setCategory(jsonConfig, "games_category_id", category);
         event.reply("Successfully set games category!").setEphemeral(true).queue();
     }
 
     private void showGamesCategoryHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
-        Category category = configService.getGamesCategory(jsonConfig, guild);
+        Category category = configService.getCategory(jsonConfig, "games_category_id", guild);
         if (category == null) {
             event.reply("No games category set").setEphemeral(true).queue();
             return;
@@ -296,7 +399,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void setBettingChannelHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");
@@ -307,7 +410,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void showBettingChannelHandler(SlashCommandInteractionEvent event) {
         Guild guild = event.getGuild();
-        if(guild == null){
+        if (guild == null) {
             return;
         }
         Path jsonConfig = Path.of(guild.getName() + ".json");

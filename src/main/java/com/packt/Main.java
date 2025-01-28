@@ -16,6 +16,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 public class Main {
+    public static String BOT_ID;
+
     public static void main(String[] arguments) throws Exception {
         String token;
         InputStream input = Main.class.getClassLoader().getResourceAsStream("config.json");
@@ -32,6 +34,7 @@ public class Main {
                 .addEventListeners(new CommandListener())
                 .build();
 
+        BOT_ID = api.getSelfUser().getId();
         CommandListUpdateAction commands = api.updateCommands();
 
         commands.addCommands(
@@ -70,6 +73,11 @@ public class Main {
                                 .addOption(OptionType.STRING, "second-player-name", "Second player in the match", true)
                                 .addOption(OptionType.INTEGER, "first-player-score", "Games won in the match by first player", true)
                                 .addOption(OptionType.INTEGER, "second-player-score", "Games won in the match by second player", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("set-rating-channel", "Sets channel in which players ratings will be posted")
+                                .addOption(OptionType.CHANNEL, "rating-channel", "Channel to host rating standings", true)
+                                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+                        Commands.slash("show-rating-channel", "Shows channel in which players ratings will be posted")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         // Betting
                         Commands.slash("set-betting-channel", "Sets betting channel which will be used to host betting polls")

@@ -25,7 +25,7 @@ public class TextChannelServiceImpl implements TextChannelService {
         if(playerA == null || playerB == null) {
             return null;
         }
-        Category category = configService.getGamesCategory(Path.of(guild.getName() + ".json"), guild);
+        Category category = configService.getCategory(Path.of(guild.getName() + ".json"), "games_category_id", guild);
         if (category == null) {
             return  null;
         }

@@ -40,6 +40,7 @@ public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
             jsonNode.putNull("welcome_message");
             jsonNode.putNull("games_category_id");
             jsonNode.putNull("betting_channel_id");
+            jsonNode.putNull("rating_channel_id");
             MAPPER.writeValue(Files.newBufferedWriter(configFile), jsonNode);
         } catch (FileAlreadyExistsException e) {
             System.out.println("File already exits: " + e.getMessage());
