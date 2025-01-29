@@ -148,6 +148,9 @@ public class CommandListener extends ListenerAdapter {
         String secondPlayerName = Objects.requireNonNull(event.getOption("second-player-name")).getAsString();
         int firstPlayerScore = Objects.requireNonNull(event.getOption("first-player-score")).getAsInt();
         int secondPlayerScore = Objects.requireNonNull(event.getOption("second-player-score")).getAsInt();
+
+        event.deferReply(true).queue();
+
         GameMatch gameMatch = ratingSystemService.saveMatchResult(firstPlayerName, secondPlayerName,
                 firstPlayerScore, secondPlayerScore);
         if (!isRatingChannelSet(guild)) {
@@ -157,10 +160,11 @@ public class CommandListener extends ListenerAdapter {
             updateRatingChannel(guild);
         }
         if (gameMatch == null) {
-            event.reply("Failed to save the result. Check if both players exist in ranking").setEphemeral(true).queue();
+            event.getHook().sendMessage("Failed to save the result. Check if both players exist in ranking")
+                    .queue();
             return;
         }
-        event.reply("Successfully saved match!" + noRatingChannelMsg).setEphemeral(true).queue();
+        event.getHook().sendMessage("Successfully saved match!" + noRatingChannelMsg).queue();
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle("Game saved!");
         eb.setDescription("%s **%d - %d** %s"
