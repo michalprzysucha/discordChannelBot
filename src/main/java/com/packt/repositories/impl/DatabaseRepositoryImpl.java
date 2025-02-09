@@ -11,7 +11,7 @@ public class DatabaseRepositoryImpl implements DatabaseRepository<DomainObject> 
     protected final SessionFactory sessionFactory;
 
     public DatabaseRepositoryImpl() {
-        this.sessionFactory = HibernateUtil.getSessionFactory();
+        this.sessionFactory = HibernateUtil.getSessionFactory(HibernateUtil.getSqliteConfiguration());
     }
 
     @Override
