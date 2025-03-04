@@ -7,10 +7,11 @@ import org.hibernate.Transaction;
 import java.util.List;
 
 public class DatabaseRepositoryPlayer extends DatabaseRepositoryImpl {
-    public Player getPlayerByName(String name){
+    public Player getPlayerByName(String name) {
+        Session session = sessionFactory.getCurrentSession();
         Transaction transaction = null;
         Player player = null;
-        try (Session session = sessionFactory.openSession()) {
+        try {
             transaction = session.beginTransaction();
             player = session.get(Player.class, name);
             transaction.commit();
@@ -24,8 +25,19 @@ public class DatabaseRepositoryPlayer extends DatabaseRepositoryImpl {
     }
 
     public List<Player> getAllPlayers() {
-        try (Session session = sessionFactory.openSession()) {
-            return session.createQuery("from Player", Player.class).list();
+        Session session = sessionFactory.getCurrentSession();
+        Transaction transaction = null;
+        List<Player> players = null;
+        try {
+            transaction = session.beginTransaction();
+            players = session.createQuery("from Player", Player.class).list();
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            e.printStackTrace();
         }
+        return players;
     }
 }

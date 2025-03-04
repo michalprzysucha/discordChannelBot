@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.packt.repositories.ConfigJsonRepository;
+import com.packt.util.ServerConfigFileLocks;
 
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
@@ -15,21 +16,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ConfigJsonRepositoryImpl implements ConfigJsonRepository {
     private static final ObjectMapper MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)
             .setSerializationInclusion(JsonInclude.Include.ALWAYS);
-    private static final Map<String, Lock> readLocks = new ConcurrentHashMap<>();
-    private static final Map<String, Lock> writeLocks = new ConcurrentHashMap<>();
+    private static final Map<String, Lock> readLocks = ServerConfigFileLocks.getReadLocks();
+    private static final Map<String, Lock> writeLocks = ServerConfigFileLocks.getWriteLocks();
 
     @Override
     public void createGuildConfigFile(Path path) {
         ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock(true);
-        readLocks.put(path.toString(), reentrantReadWriteLock.readLock());
-        writeLocks.put(path.toString(), reentrantReadWriteLock.writeLock());
+        ServerConfigFileLocks.addReadLock(path, reentrantReadWriteLock.readLock());
+        ServerConfigFileLocks.addWriteLock(path, reentrantReadWriteLock.writeLock());
         if(Files.exists(path)) {
             return;
         }

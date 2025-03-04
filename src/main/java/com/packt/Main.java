@@ -2,6 +2,7 @@ package com.packt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.packt.controllers.CommandListener;
+import com.packt.util.ServerConfigFileLocks;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -10,6 +11,8 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -17,18 +20,20 @@ import java.io.InputStreamReader;
 
 public class Main {
     public static String BOT_ID;
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] arguments) throws Exception {
         String token;
         InputStream input = Main.class.getClassLoader().getResourceAsStream("config.json");
         if (input == null) {
+            logger.error("Missing config.json");
             return;
         }
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
             ObjectMapper objectMapper = new ObjectMapper();
             token = objectMapper.readTree(reader).get("token").asText();
         }
-
+        ServerConfigFileLocks.initializeLocks();
         JDA api = JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT)
                 .addEventListeners(new CommandListener())
@@ -79,6 +84,7 @@ public class Main {
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
                         Commands.slash("show-rating-channel", "Shows channel in which players ratings will be posted")
                                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS)),
+
                         // Betting
                         Commands.slash("set-betting-channel", "Sets betting channel which will be used to host betting polls")
                                 .addOption(OptionType.CHANNEL, "betting-channel", "Betting channel", true)

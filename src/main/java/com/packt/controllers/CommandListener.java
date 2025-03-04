@@ -1,6 +1,7 @@
 package com.packt.controllers;
 
 import com.packt.Main;
+import com.packt.exceptions.DeletingPlayerWithGamesAssociationException;
 import com.packt.models.GameMatch;
 import com.packt.models.Player;
 import com.packt.services.BettingService;
@@ -30,9 +31,8 @@ import java.awt.*;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class CommandListener extends ListenerAdapter {
@@ -123,7 +123,14 @@ public class CommandListener extends ListenerAdapter {
             return;
         }
         String playerName = Objects.requireNonNull(event.getOption("player-name")).getAsString();
-        boolean flag = ratingSystemService.removePlayer(playerName);
+        boolean flag;
+        try {
+            flag = ratingSystemService.removePlayer(playerName);
+        } catch (DeletingPlayerWithGamesAssociationException e) {
+            event.reply(e.getMessage())
+                    .setEphemeral(true).queue();
+            return;
+        }
         String noRatingChannelMsg = "";
         if (!isRatingChannelSet(guild)) {
             noRatingChannelMsg = " WARNING: No rating channel is set. To automatically post players rating you need to " +
@@ -189,17 +196,37 @@ public class CommandListener extends ListenerAdapter {
     }
 
     private String concatPlayers(List<Player> players) {
-        players = players.stream()
+        var sortedPlayers = players.stream()
                 .sorted(Comparator.comparing(Player::getRating).reversed())
                 .toList();
-        StringBuilder ratings = new StringBuilder("```\n");
-        for (int i = 0; i < players.size(); i++) {
-            ratings.append("%10s %10s %20s%n".formatted(
-                    i + 1 + ".", Math.round(players.get(i).getRating()), players.get(i).getName()
-            ));
+        return sortedPlayers
+                .stream()
+                .map(player ->
+                    "%10s %10s %20s%n".formatted(
+                            sortedPlayers.indexOf(player) + 1 + ".",
+                            Math.round(player.getRating()),
+                            player.getName())
+                )
+                .collect(Collectors.joining(""));
+    }
+
+    private List<String> splitPlayersIntoChunks(String players) {
+        Scanner scanner = new Scanner(players);
+        List<String> chunks = new ArrayList<>();
+        StringBuilder chunkBuilder = new StringBuilder();
+        int chunkLength = 0;
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            chunkLength += line.length();
+            if (chunkLength >= 1990) {
+                chunkBuilder.insert(0, "```\n").append("```\n");
+                chunks.add(chunkBuilder.toString());
+                chunkBuilder = new StringBuilder(line).append("\n");
+                chunkLength = line.length();
+            }
+            chunkBuilder.append(line).append("\n");
         }
-        ratings.append("```");
-        return ratings.toString();
+        return chunks;
     }
 
     private void setRatingChannelHandler(SlashCommandInteractionEvent event) {
@@ -231,7 +258,8 @@ public class CommandListener extends ListenerAdapter {
         Path jsonConfig = Path.of(guild.getName() + ".json");
         TextChannel channel = configService.getChannel(jsonConfig, "rating_channel_id", guild);
         deleteAllPreviousMsgs(channel);
-        channel.sendMessage(concatPlayers(ratingSystemService.getAllPlayers())).queue();
+        List<String> messageChunks = splitPlayersIntoChunks(concatPlayers(ratingSystemService.getAllPlayers()));
+        messageChunks.forEach(chunk -> channel.sendMessage(chunk).queue());
     }
 
     private void deleteAllPreviousMsgs(TextChannel channel) {

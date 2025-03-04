@@ -48,7 +48,7 @@ public class RatingSystemServiceImpl implements RatingSystemService {
         EloRatingCalculator.updateRatings(gameMatch);
         playerRepository.update(firstPlayer);
         playerRepository.update(secondPlayer);
-        playerRepository.update(gameMatch);
+        playerRepository.save(gameMatch);
         return gameMatch;
     }
 

@@ -11,8 +11,12 @@ import org.hibernate.service.ServiceRegistry;
 import java.util.Properties;
 
 public class HibernateUtil {
-    private static SessionFactory sessionFactory;
-    public static SessionFactory getSessionFactory(Configuration config) {
+    private static SessionFactory sessionFactory = buildSessionFactory(getSqliteConfiguration());
+
+    public static SessionFactory getSessionFactory(){
+        return sessionFactory;
+    }
+    private static SessionFactory buildSessionFactory(Configuration config) {
         if (sessionFactory == null) {
             try {
                 config.addAnnotatedClass(Player.class);
@@ -29,7 +33,7 @@ public class HibernateUtil {
         return sessionFactory;
     }
 
-    public static Configuration getMysqlConfiguration() {
+    private static Configuration getMysqlConfiguration() {
         Configuration configuration = new Configuration();
 
         Properties settings = new Properties();
@@ -38,6 +42,7 @@ public class HibernateUtil {
         settings.put(Environment.USER, "root");
         settings.put(Environment.PASS, "root");
         settings.put(Environment.SHOW_SQL, "true");
+
 
         settings.put(Environment.CURRENT_SESSION_CONTEXT_CLASS, "thread");
 
@@ -48,7 +53,7 @@ public class HibernateUtil {
         return configuration;
     }
 
-    public static Configuration getSqliteConfiguration() {
+    private static Configuration getSqliteConfiguration() {
         Configuration configuration = new Configuration();
 
         Properties settings = new Properties();
@@ -56,6 +61,7 @@ public class HibernateUtil {
         settings.put("hibernate.connection.url", "jdbc:sqlite:7k_rating.db");
         settings.put("hibernate.show_sql", "true");
         settings.put("hibernate.format_sql", "true");
+        settings.put("hibernate.connection.date_class", "TEXT");
 
         settings.put(Environment.CURRENT_SESSION_CONTEXT_CLASS, "thread");
 

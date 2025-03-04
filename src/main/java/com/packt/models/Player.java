@@ -1,17 +1,36 @@
 package com.packt.models;
 
+import com.packt.exceptions.DeletingPlayerWithGamesAssociationException;
 import jakarta.persistence.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Objects;
 
 @Entity
 @Table(name = "player")
 public class Player implements DomainObject {
+    private static Logger logger = LoggerFactory.getLogger(DomainObject.class);
+
     @Id
     @Column(name = "name")
     private String name;
     @Column(name = "rating")
     private double rating;
+
+    @OneToMany(mappedBy = "playerA", cascade = CascadeType.ALL)
+    private List<GameMatch> gameMatchesAsPlayerA;
+
+    @OneToMany(mappedBy = "playerB", cascade = CascadeType.ALL)
+    private List<GameMatch> gameMatchesAsPlayerB;
+
+    @PreRemove
+    public void checkForGameMatches() {
+        if (!gameMatchesAsPlayerA.isEmpty() || !gameMatchesAsPlayerB.isEmpty()) {
+            throw new DeletingPlayerWithGamesAssociationException();
+        }
+    }
 
     public Player() {
         this.name = "default";
