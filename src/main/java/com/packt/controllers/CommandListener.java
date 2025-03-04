@@ -221,10 +221,14 @@ public class CommandListener extends ListenerAdapter {
             if (chunkLength >= 1990) {
                 chunkBuilder.insert(0, "```\n").append("```\n");
                 chunks.add(chunkBuilder.toString());
-                chunkBuilder = new StringBuilder(line).append("\n");
+                chunkBuilder = new StringBuilder();
                 chunkLength = line.length();
             }
             chunkBuilder.append(line).append("\n");
+        }
+        if(!chunkBuilder.isEmpty()){
+            chunkBuilder.insert(0, "```\n").append("```\n");
+            chunks.add(chunkBuilder.toString());
         }
         return chunks;
     }
