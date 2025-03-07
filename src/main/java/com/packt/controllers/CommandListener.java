@@ -20,6 +20,8 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
@@ -185,8 +187,14 @@ public class CommandListener extends ListenerAdapter {
         eb.addBlankField(true);
         eb.addField(secondPlayerName + "'s rating change",
                 Long.toString(Math.round(gameMatch.getPlayerBRatingChange())), true);
-        event.getChannel().asTextChannel().sendMessageEmbeds(eb.build()).queue();
 
+        MessageChannel channel = event.getChannel();
+
+        if (channel instanceof TextChannel textChannel) {
+            textChannel.sendMessageEmbeds(eb.build()).queue();
+        } else if (channel instanceof ThreadChannel threadChannel) {
+            threadChannel.sendMessageEmbeds(eb.build()).queue();
+        }
     }
 
     private boolean isRatingChannelSet(Guild guild) {
