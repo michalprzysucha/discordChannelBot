@@ -28,6 +28,8 @@ import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionE
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.nio.file.Path;
@@ -85,15 +87,16 @@ public class CommandListener extends ListenerAdapter {
         if (guild == null) {
             return;
         }
-        List<Player> players = ratingSystemService.getAllPlayers();
-        String ratings = concatPlayers(players);
+        List<String> messageChunks = splitPlayersIntoChunks(concatPlayers(ratingSystemService.getAllPlayers()));
 
         Path jsonConfig = Path.of(guild.getName() + ".json");
         TextChannel channel = configService.getChannel(jsonConfig, "rating_channel_id", guild);
         if (channel == null) {
             channel = event.getChannel().asTextChannel();
         }
-        channel.sendMessage(ratings).queue();
+        for(String chunk : messageChunks) {
+            channel.sendMessage(chunk).queue();
+        }
         event.reply("Successfully published ratings!").setEphemeral(true).queue();
     }
 
@@ -210,10 +213,10 @@ public class CommandListener extends ListenerAdapter {
         return sortedPlayers
                 .stream()
                 .map(player ->
-                    "%10s %10s %20s%n".formatted(
-                            sortedPlayers.indexOf(player) + 1 + ".",
-                            Math.round(player.getRating()),
-                            player.getName())
+                        "%10s %10s %20s%n".formatted(
+                                sortedPlayers.indexOf(player) + 1 + ".",
+                                Math.round(player.getRating()),
+                                player.getName())
                 )
                 .collect(Collectors.joining(""));
     }
@@ -221,21 +224,21 @@ public class CommandListener extends ListenerAdapter {
     private List<String> splitPlayersIntoChunks(String players) {
         Scanner scanner = new Scanner(players);
         List<String> chunks = new ArrayList<>();
-        StringBuilder chunkBuilder = new StringBuilder();
-        int chunkLength = 0;
+        StringBuilder chunkBuilder = new StringBuilder("```");
+        int chunkLength = chunkBuilder.length();
         while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
-            chunkLength += line.length();
-            if (chunkLength >= 1990) {
-                chunkBuilder.insert(0, "```\n").append("```\n");
+            chunkLength += line.length() + "\n".length();
+            if (chunkLength >= 1980) {
+                chunkBuilder.append("```");
                 chunks.add(chunkBuilder.toString());
-                chunkBuilder = new StringBuilder();
-                chunkLength = line.length();
+                chunkBuilder = new StringBuilder("```");
+                chunkLength = line.length() + "\n".length();
             }
             chunkBuilder.append(line).append("\n");
         }
-        if(!chunkBuilder.isEmpty()){
-            chunkBuilder.insert(0, "```\n").append("```\n");
+        if (!chunkBuilder.isEmpty()) {
+            chunkBuilder.append("```");
             chunks.add(chunkBuilder.toString());
         }
         return chunks;

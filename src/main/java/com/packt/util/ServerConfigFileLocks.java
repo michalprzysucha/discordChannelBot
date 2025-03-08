@@ -24,8 +24,6 @@ public class ServerConfigFileLocks {
                         readLocks.put(path.getFileName().toString(), reentrantReadWriteLock.readLock());
                         writeLocks.put(path.getFileName().toString(), reentrantReadWriteLock.writeLock());
                     });
-//            readLocks.forEach((k, v ) -> System.out.println(k + ", " + v));
-//            writeLocks.forEach((k, v ) -> System.out.println(k + ", " + v));
         }
         catch (Exception e){
             System.out.println(e.getMessage());
