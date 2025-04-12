@@ -12,17 +12,19 @@ public class EloRatingCalculator {
         Player playerB = match.getPlayerB();
         double ratingA = playerA.getRating();
         double ratingB = playerB.getRating();
-        double pA = match.getPlayerAScore();
-        double pB = match.getPlayerBScore();
-        if (pA == pB && pA == 0){
+        int scoreA = match.getPlayerAScore();
+        int scoreB = match.getPlayerBScore();
+        if (scoreA == scoreB && scoreA == 0){
             return;
         }
-        double scoreRatioA = pA / (pA + pB);
-        double scoreRatioB = pB / (pB + pA);
+        double scoreRatioA = (double) scoreA / (scoreA + scoreB);
+        double scoreRatioB = (double) scoreB / (scoreB + scoreA);
         double expectedOutcomeA = Ea(q(ratingA), q(ratingB));
         double expectedOutcomeB = Ea(q(ratingB), q(ratingA));
-        double playerANewRating =  ratingA + K * (scoreRatioA - expectedOutcomeA);
-        double playerBNewRating =  ratingB + K * (scoreRatioB - expectedOutcomeB);
+        int scoreDifference = scoreDifference(scoreA, scoreB);
+        double g = g(scoreDifference, ratingA, ratingB);
+        double playerANewRating =  ratingA + K * g * (scoreRatioA - expectedOutcomeA);
+        double playerBNewRating =  ratingB + K * g * (scoreRatioB - expectedOutcomeB);
         playerA.setRating(Math.max(playerANewRating, 1000));
         playerB.setRating(Math.max(playerBNewRating, 1000));
         match.setPlayerARatingChange(playerA.getRating() - ratingA);
@@ -37,16 +39,12 @@ public class EloRatingCalculator {
         return Math.pow(10, (rating / C));
     }
 
-    private static double s(double pA, double pB){
-        if(pA > pB){
-            return 1.0;
-        }
-        else if(pA == pB){
-            return 0.5;
-        }
-        else{
-            return 0.0;
-        }
+    private static int scoreDifference(int scoreA, int scoreB){
+        return Math.abs(scoreA - scoreB);
+    }
+
+    private static double g(int scoreDifference, double ratingA, double ratingB){
+        return Math.log(scoreDifference + 1) * (2.2 / ((ratingA - ratingB) * 0.001 + 2.2));
     }
 }
 
